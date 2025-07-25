@@ -1,16 +1,13 @@
 from datetime import datetime, date, timedelta
 
 #Função para receber o nome e duração do serviço.
-def adicionar_servico():
-    nome_servico = str(input("Nome do serviço: "))
-    minutos = int(input("Duração do serviço: [Em minutos]"))
-
+def adicionar_servico(nome_do_servico, minutos):
     #Converte os minutos com o timedelta
     duracao_minutos = timedelta(minutes = minutos)
     
     #Adiciona o novo serviço em um dicionário
     novo_servico = {
-        "nome do servico" : nome_servico,
+        "nome do servico" : nome_do_servico,
         "duracao_servico" : duracao_minutos
     }
 
