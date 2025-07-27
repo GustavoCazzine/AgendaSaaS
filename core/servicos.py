@@ -75,7 +75,7 @@ def titulo(msg):
 #Função para listar as opções
 def listar_opcoes():
         
-    opcoes = ["Adicionar Serviço", "Listar Serviços", "Sair\n"]
+    opcoes = ["Adicionar Serviço", "Listar Serviços", "Agendar Serviço","Sair\n"]
 
     for e, opcao in enumerate(opcoes,start=1):
         print(f"{e}. {opcao}")

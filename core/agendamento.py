@@ -1,46 +1,98 @@
-#Importando bibliotecas
-import datetime
 
-#Função para converter STR em horários
-def converter_datetime(inicio_servico, fim_servico, horario_abertura, horario_fechamento):
+from datetime import datetime, timedelta
 
-    inicio_servico = datetime.datetime.strptime(inicio_servico, "%H:%M").time()
-    fim_servico = datetime.datetime.strptime(fim_servico, "%H:%M").time()
-    horario_abertura = datetime.datetime.strptime(horario_abertura, "%H:%M").time()
-    horario_fechamento = datetime.datetime.strptime(horario_fechamento, "%H:%M").time()
+# --- FUNÇÕES AJUDANTES (Helpers) ---
+# Funções pequenas com uma única responsabilidade.
 
-    return inicio_servico, fim_servico, horario_abertura, horario_fechamento
+def converter_string_para_datetime(string_horario):
+    """
+    Tenta converter uma string de texto em um objeto datetime.
+    Esta é a nossa "ponte" entre o que o usuário digita e o que o Python entende.
+    """
+    try:
+        # datetime.strptime significa "string parse time" (analisar tempo a partir de uma string).
+        # O primeiro argumento é a string que queremos converter.
+        # O segundo argumento é o FORMATO que esperamos. %d=dia, %m=mês, %Y=ano, %H=hora, %M=minuto.
+        return datetime.strptime(string_horario, "%d/%m/%Y %H:%M")
+    except ValueError:
+        # Se o usuário digitar algo que não bate com o formato (ex: "amanhã"),
+        # a conversão dará um erro (ValueError). Nós o capturamos e retornamos None
+        # para sinalizar que a entrada foi inválida.
+        return None
 
-def validar_horario_funcionamento(input_inicio_servico, input_fim_servico, input_horario_abertura="09:30", input_horario_fechamento="19:00"):
+def calcular_horario_fim(horario_inicio, servico):
+    """
+    Calcula o horário de término de um agendamento.
+    """
+    # A beleza de ter a duração como um objeto timedelta é que podemos simplesmente somá-la
+    # a um objeto datetime para obter o resultado correto.
+    return horario_inicio + servico['duracao_servico']
 
-    inicio_servico, fim_servico, horario_abertura, horario_fechamento = converter_datetime(input_inicio_servico, input_fim_servico, input_horario_abertura, input_horario_fechamento)
+# --- FUNÇÕES DE VALIDAÇÃO ---
+# Funções que respondem a uma pergunta com "Sim" (True) ou "Não" (False).
 
-    if inicio_servico >= horario_abertura and fim_servico <= horario_fechamento:
-        print(True)
+def validar_horario_funcionamento(horario_inicio, horario_fim, config_salao):
+    """
+    Verifica se o agendamento está dentro do horário de funcionamento do salão.
+    """
+    # Acessamos o atributo .hour de um objeto datetime para pegar apenas a hora.
+    # Verificamos se o agendamento não começa antes da abertura E não termina depois do fechamento.
+    if (horario_inicio.hour >= config_salao['hora_abertura'] and
+        horario_fim.hour <= config_salao['hora_fechamento']):
+        return True  # Horário Válido
     else:
-        print(False)
+        return False # Horário Inválido
 
-def verificar_conflito(lista_agendamentos, horario_inicio_novo, horario_fim_novo):
-    for horarios in lista_agendamentos:
-        if horarios["inicio"] >= horario_inicio_novo and horarios["fim"] <= horario_fim_novo:
-            horario_ocupado = True
-        else:
-            horario_ocupado = False
+def verificar_conflito(lista_de_agendamentos, horario_inicio_novo, horario_fim_novo):
+    """
+    Verifica se um novo agendamento se sobrepõe a algum agendamento existente.
+    Esta é a lógica mais complexa.
+    """
+    # Para cada agendamento que já existe na nossa lista...
+    for agendamento_existente in lista_de_agendamentos:
+        inicio_existente = agendamento_existente['inicio']
+        fim_existente = agendamento_existente['fim']
+
+        # A CONDIÇÃO DE CONFLITO:
+        # Pense em duas réguas de tempo. Uma sobrepõe a outra se:
+        # O início do novo agendamento vem ANTES do fim do antigo
+        # E (AND)
+        # O fim do novo agendamento vem DEPOIS do início do antigo.
+        # Se ambas as condições forem verdadeiras, temos uma sobreposição.
+        if horario_inicio_novo < fim_existente and horario_fim_novo > inicio_existente:
+            return True  # Conflito encontrado!
     
-    if horario_ocupado:
-        print("Horario ocupado")
-    else:
-        print("horario livre")
+    # Se o laço terminar e nenhum conflito for encontrado, o horário está livre.
+    return False # Sem conflitos
 
-agendamentos = [{
-    "inicio": "09:30",
-    "fim": "10:30"
-}, {
-    "inicio": "10:30",
-    "fim": "11:00"
-}, {
-    "inicio": "13:30",
-    "fim": "14:30"
-}]
+# --- FUNÇÃO PRINCIPAL (ORQUESTRADORA) ---
 
-verificar_conflito(agendamentos, "16:00", "17:00")
+def criar_novo_agendamento(lista_de_agendamentos, config_salao, nome_cliente, servico_escolhido, horario_inicio):
+    """
+    Orquestra todo o processo de criação de um novo agendamento.
+    Ela usa todas as outras funções para fazer seu trabalho.
+    """
+    # 1. Calcular o horário de término
+    horario_fim = calcular_horario_fim(horario_inicio, servico_escolhido)
+
+    # 2. Validar horário de funcionamento
+    if not validar_horario_funcionamento(horario_inicio, horario_fim, config_salao):
+        # Se a validação falhar, retornamos imediatamente com uma tupla de falha.
+        return (False, "Erro: O horário solicitado está fora do expediente do salão.")
+
+    # 3. Validar conflitos
+    if verificar_conflito(lista_de_agendamentos, horario_inicio, horario_fim):
+        # Se a validação de conflito falhar, retornamos com uma tupla de falha.
+        return (False, "Erro: Horário indisponível. Já existe um agendamento neste período.")
+
+    # 4. Se tudo passou, criar e adicionar o agendamento
+    novo_agendamento = {
+        'cliente': nome_cliente,
+        'servico': servico_escolhido,
+        'inicio': horario_inicio,
+        'fim': horario_fim
+    }
+    lista_de_agendamentos.append(novo_agendamento)
+
+    # 5. Retornar uma tupla de sucesso com a lista atualizada.
+    return (True, lista_de_agendamentos)
