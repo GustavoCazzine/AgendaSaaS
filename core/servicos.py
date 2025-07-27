@@ -33,9 +33,7 @@ def solicitar_informações():
                 limpar_tela()
                 print("Campo em branco, informe o nome do serviço")
         except:
-            print("Insira o nome do serviço, tente novamente...")
-        
-    
+            print("Insira o nome do serviço, tente novamente...")   
 
 #Função para receber o nome e duração do serviço.
 def adicionar_servico(nome_do_servico, minutos):
